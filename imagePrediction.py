@@ -35,7 +35,7 @@ class imagePrediction():
         with torch.no_grad():
             preds = model(image)
         self.value = preds.item()
-        print(f'Item: {self.path} | Popularity Score: {preds.item():.2f}')
+        #print(f'Item: {self.path} | Popularity Score: {preds.item():.2f}')
 
     def getValue(self):
         return self.value
