@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, redirect, flash, url_for, Res
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = "345i9-03945-03i45tonedfg0o9jeofgnslk"
+app.secret_key = ""
 
 JSON_DB = 'scores.json'
 
