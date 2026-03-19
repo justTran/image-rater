@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Manager</title>
+</head>
+<body>
+    <h2>Upload an Image</h2>
+    {% if file_count >= 10 %}
+    <p style="color: red;">Upload disabled: Limit reached.</p>
+    {% else %}
+        <form action="/upload" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file">
+            <button type="submit">Upload Image</button>
+        </form>
+    {% endif %}
+
+    <p>Storage Status: <strong>{{ file_count | default(0) }} / 10</strong> files used.</p>
+    <hr>
+
+    {% if files %}
+        <h3>Uploaded Files:</h3>
+        <ul>
+            {% for file in files %}
+                <li>{{ file }}</li>
+            {% endfor %}
+        </ul>
+        <a href="/process">Process Files and return results</a>
+    {% else %}
+        <p>No files uploaded yet or list not requested.</p>
+        <a href="/files"><button type="button">Refresh/Show Files</button></a>
+    {% endif %}
+
+<div style="margin-top: 20px;">
+    <a href="/download-scores">
+        <button type="button" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer;">
+            Download Scores as CSV
+        </button>
+    </a>
+</div>
+
+</body>
+</html>
