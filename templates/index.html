@@ -1,42 +1,282 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Image Manager</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Rater</title>
+    <style>
+        :root {
+            /* Light Theme Palette */
+            --bg-page: #f0f3f6;
+            --bg-card: #ffffff;
+            --bg-item: #ffffff;
+            --bg-drop: #f8f8f8;
+            --text-main: #333333;
+            --text-sub: #666666;
+            --text-muted: #999999;
+            --border-color: #eaeaea;
+            
+            /* Action Colors */
+            --primary-green: #2ecc71;
+            --dark-green: #27ae60;
+            --process-blue: #3498db;
+            --dark-blue: #2980b9;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-theme {
+            /* Dark Theme Palette */
+            --bg-page: #121212;
+            --bg-card: #1e1e1e;
+            --bg-item: #252525;
+            --bg-drop: #2a2a2a;
+            --text-main: #e0e0e0;
+            --text-sub: #b0b0b0;
+            --text-muted: #777777;
+            --border-color: #333333;
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            transition: background-color 0.3s ease;
+        }
+
+        .upload-card {
+            background: var(--bg-card);
+            width: 550px;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 20px 25px -5px var(--shadow), 0 10px 10px -5px var(--shadow);
+            transition: background-color 0.3s ease;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        h2 { margin: 0; font-size: 1.4rem; }
+        
+        #themeToggle {
+            background: var(--bg-drop);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            cursor: pointer;
+            padding: 8px;
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+
+        .header-line { height: 1px; background: var(--border-color); margin-bottom: 24px; }
+
+        /* Drop Zone */
+        .drop-zone {
+            background: var(--bg-drop);
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+        .drop-zone.dragover { border-color: var(--primary-green); background: rgba(46, 204, 113, 0.1); }
+        .browse-text { color: var(--primary-green); font-weight: 600; }
+
+        .file-count-container { text-align: right; margin-bottom: 10px; color: var(--text-muted); font-size: 0.9rem; }
+
+        /* File List & Items */
+        .file-list { max-height: 320px; overflow-y: auto; padding-right: 5px; }
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            background: var(--bg-item);
+            transition: transform 0.1s;
+        }
+        
+        .file-thumbnail {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid var(--border-color);
+            cursor: zoom-in;
+            transition: opacity 0.2s;
+        }
+        .file-thumbnail:hover { opacity: 0.8; }
+
+        .file-details { flex: 1; }
+        .file-name { font-weight: 600; margin: 0; font-size: 0.95rem; }
+        .file-score { color: var(--text-sub); font-size: 0.85rem; margin: 4px 0 0 0; }
+        
+        .status-tag { font-size: 0.7rem; font-weight: 800; margin-top: 6px; display: inline-block; padding: 2px 8px; border-radius: 5px; }
+        .status-pending { background: #fff3e0; color: #e67e22; }
+        .status-completed { background: #e8f5e9; color: var(--primary-green); }
+
+        /* Footer Buttons */
+        .card-footer { margin-top: 25px; display: flex; gap: 12px; }
+        .btn {
+            flex: 1;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: white;
+        }
+        .process-btn { background: var(--process-blue); }
+        .process-btn:hover { background: var(--dark-blue); }
+        
+        .download-btn { background: var(--primary-green); }
+        .download-btn:hover:not(:disabled) { background: var(--dark-green); }
+        .download-btn:disabled { background: #ccc; cursor: not-allowed; opacity: 0.6; }
+
+        /* Modal Preview */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
+            justify-content: center; align-items: center;
+        }
+        .modal-content { max-width: 90%; max-height: 90%; border-radius: 12px; transform: scale(0.9); transition: transform 0.3s ease; }
+        .modal-overlay.active { display: flex; }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+
+        .flashes { color: #e74c3c; font-size: 0.85rem; list-style: none; padding: 0; margin-bottom: 15px; }
+    </style>
 </head>
 <body>
-    <h2>Upload an Image</h2>
-    {% if file_count >= 10 %}
-    <p style="color: red;">Upload disabled: Limit reached.</p>
-    {% else %}
-        <form action="/upload" method="POST" enctype="multipart/form-data">
-            <input type="file" name="file">
-            <button type="submit">Upload Image</button>
-        </form>
-    {% endif %}
 
-    <p>Storage Status: <strong>{{ file_count | default(0) }} / 10</strong> files used.</p>
-    <hr>
+    <div class="upload-card">
+        <div class="card-header">
+            <h2>Image Analysis</h2>
+            <button id="themeToggle" title="Toggle Dark Mode">
+                <span id="themeIcon">🌙</span>
+            </button>
+        </div>
+        <div class="header-line"></div>
 
-    {% if files %}
-        <h3>Uploaded Files:</h3>
-        <ul>
+        <input type="file" id="realInput" hidden accept="image/*">
+        
+        <div class="drop-zone" id="dropZone">
+            <div style="font-size: 1.5rem; margin-bottom: 5px;">⬆</div>
+            <p style="margin: 0; color: var(--text-sub);">
+                Drag & Drop or <span class="browse-text">Browse</span>
+            </p>
+        </div>
+
+        <div class="file-count-container">
+            <span>{{ file_count|default(0) }}/10</span>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}<ul class="flashes">{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+        {% endwith %}
+
+        <div class="file-list">
             {% for file in files %}
-                <li>{{ file }}</li>
+            <div class="file-item">
+                <img src="{{ file.url }}" class="file-thumbnail" alt="preview">
+                <div class="file-details">
+                    <p class="file-name">{{ file.name }}</p>
+                    <p class="file-score">Score: <strong>{{ file.score }}</strong></p>
+                    {% if file.processed %}
+                        <span class="status-tag status-completed">COMPLETED</span>
+                    {% else %}
+                        <span class="status-tag status-pending">PENDING</span>
+                    {% endif %}
+                </div>
+            </div>
             {% endfor %}
-        </ul>
-        <a href="/process">Process Files and return results</a>
-    {% else %}
-        <p>No files uploaded yet or list not requested.</p>
-        <a href="/files"><button type="button">Refresh/Show Files</button></a>
-    {% endif %}
+        </div>
 
-<div style="margin-top: 20px;">
-    <a href="/download-scores">
-        <button type="button" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer;">
-            Download Scores as CSV
-        </button>
-    </a>
-</div>
+        <div class="card-footer">
+            <form action="/process" method="POST" style="flex: 1;">
+                <button type="submit" class="btn process-btn" {% if not files %}disabled{% endif %}>
+                    Process
+                </button>
+            </form>
 
+            <form action="{{ url_for('download_scores') }}" style="flex: 1;">
+                <button type="submit" class="btn download-btn" {% if not has_scores %}disabled{% endif %}>
+                    Download
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="imageModal" class="modal-overlay">
+        <img class="modal-content" id="fullImage">
+    </div>
+
+    <script>
+        const body = document.body;
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const dropZone = document.getElementById('dropZone');
+        const realInput = document.getElementById('realInput');
+        const modal = document.getElementById("imageModal");
+        const fullImg = document.getElementById("fullImage");
+
+        if (localStorage.getItem('theme') === 'dark') {
+            body.classList.add('dark-theme');
+            themeIcon.textContent = '☀️';
+        }
+
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-theme');
+            const isDark = body.classList.contains('dark-theme');
+            themeIcon.textContent = isDark ? '☀️' : '🌙';
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+
+        dropZone.addEventListener('click', () => realInput.click());
+        realInput.addEventListener('change', () => { if (realInput.files.length) handleUpload(realInput.files[0]); });
+
+        ['dragover', 'dragenter'].forEach(t => dropZone.addEventListener(t, (e) => {
+            e.preventDefault(); dropZone.classList.add('dragover');
+        }));
+        ['dragleave', 'drop', 'dragend'].forEach(t => dropZone.addEventListener(t, () => 
+            dropZone.classList.remove('dragover')));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files[0]) handleUpload(e.dataTransfer.files[0]);
+        });
+
+        function handleUpload(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            fetch('/upload', { method: 'POST', body: formData })
+            .then(res => { if(res.ok) setTimeout(() => window.location.reload(), 200); });
+        }
+
+        document.querySelectorAll('.file-thumbnail').forEach(img => {
+            img.addEventListener('click', (e) => {
+                modal.classList.add('active');
+                fullImg.src = e.target.src;
+            });
+        });
+        modal.onclick = () => modal.classList.remove('active');
+    </script>
 </body>
 </html>
