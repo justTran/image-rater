@@ -1,16 +1,16 @@
 import io, csv, os, imagePrediction, json
-from flask import Flask, render_template, request, redirect, flash, url_for, Response
+from flask import Flask, render_template, request, redirect, url_for, Response, send_from_directory
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = ""
 
-JSON_DB = 'scores.json'
-
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'cr2', 'arw'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True) # Ensure folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+JSON_DB = os.path.join(BASE_DIR, 'scores.json')
 
 def load_scores():
     if not os.path.exists(JSON_DB):
@@ -29,87 +29,109 @@ def file_check(filename):
 
 @app.route('/')
 def index():
-    files = os.listdir(app.config['UPLOAD_FOLDER'])
-    count = len([f for f in files if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))])
-    return render_template('index.html', file_count=count)
+    upload_path = app.config['UPLOAD_FOLDER']
+    all_scores = load_scores()
+    filenames = [f for f in os.listdir(upload_path) if os.path.isfile(os.path.join(upload_path, f))]
+
+    display_files = []
+    for name in filenames:
+        display_files.append({
+            'name': name,
+            'score': all_scores.get(name, "Pending..."),
+            'processed': name in all_scores,
+            'url': url_for('display_image', filename=name)
+        })
+
+    return render_template('index.html', files=display_files, file_count=len(display_files), has_scores=len(all_scores) > 0)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
     print(request.files)
-# 1. Check if the folder is already full
-    existing_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) 
+
+    existing_files = [f for f in os.listdir(app.config['UPLOAD_FOLDER'])
                       if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))]
-    
+
     if len(existing_files) >= 10:
-        flash("Storage full! Limit is 10 files. Please delete some before uploading.")
+        print("Storage full! Limit is 10 files. Please delete some before uploading.")
         return redirect(url_for('index'))
 
-    # 2. Proceed with standard upload checks
     if 'file' not in request.files:
-        flash('No file part')
+        print('No file part')
         return redirect(url_for('index'))
-    
+
     file = request.files['file']
-    if file.filename == '':
-        flash('No selected file')
+    if file.filename  == '':
+        print('No selected file')
         return redirect(url_for('index'))
 
     if file and file_check(file.filename):
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        flash(f"Successfully uploaded {filename}. ({len(existing_files) + 1}/10)")
+        print(f"Successfully uploaded {filename}. ({len(existing_files) + 1}/10)")
         return redirect(url_for('index'))
-    
-    flash("Invalid file type.")
+
+    print("Invalid file type.")
     return redirect(url_for('index'))
 
 @app.route('/files')
 def list_files():
     files = os.listdir(app.config['UPLOAD_FOLDER'])
-    # Filter out hidden files or system files if necessary
+
     files = [f for f in files if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))]
     return render_template('index.html', files=files, file_count=len(files))
 
-@app.route('/process')
-def process_files():
-    files = os.listdir(app.config['UPLOAD_FOLDER'])
-    files = [f for f in files if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))]
-    for f in files:
-        score = imagePrediction.imagePrediction(os.path.join(app.config['UPLOAD_FOLDER'], f)).getValue()
-        save_score(f, score)
-        print(os.path.join(app.config['UPLOAD_FOLDER'], f))
-        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], f))
+@app.route('/process', methods=['POST'])
+def process_images():
+    upload_path = app.config['UPLOAD_FOLDER']
+    all_scores = load_scores()
 
-    return render_template('index.html', files=files, file_count=len(files))
+    filenames = [f for f in os.listdir(upload_path)
+                 if os.path.isfile(os.path.join(upload_path, f))]
+
+    if not filenames:
+        print("No images to process!")
+        return redirect(url_for('index'))
+
+    for name in filenames:
+
+        if name not in all_scores:
+            f = os.path.join(upload_path, name)
+            score = imagePrediction.imagePrediction(f).getValue()
+            save_score(name, score)
+            os.remove(f)
+
+    print("Processing complete!")
+    return redirect(url_for('index'))
+
+@app.route('/display/<filename>')
+def display_image(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/download-scores')
 def download_scores():
     all_scores = load_scores()
-    
+
     if not all_scores:
-        flash("No data available to download. Please upload and process images first.")
+        print("No data available to download. Please upload and process images first.")
         return redirect(url_for('index'))
-    
-    # Create the in-memory file
+
     si = io.StringIO()
     cw = csv.writer(si)
-    
-    # Write Header and Data
+
     cw.writerow(['Filename', 'Score'])
     for name, score in all_scores.items():
         cw.writerow([name, score])
-    
-    # Important: Move the "read pointer" to the start of the string
+
     output = si.getvalue()
 
     with open(JSON_DB, 'w') as f:
         json.dump({}, f)
-    
+
     return Response(
         output,
         mimetype="text/csv",
         headers={"Content-disposition": "attachment; filename=image_scores.csv"}
     )
-    
-if __name__ == '__main__':
+
+if __name__  == '__main__':
     app.run(debug=True)
